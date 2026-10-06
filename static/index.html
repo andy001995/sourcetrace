@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gvl-recon · 前端静态源码业务链路解析工具</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2330; --line: #2d333b;
+    --text: #e6edf3; --muted: #8b949e; --accent: #3fb6ff; --accent2: #22d3a6;
+    --danger: #f85149; --warn: #d29922;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.7 "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+  header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+  .logo { font-size: 20px; font-weight: 700; }
+  .logo span { color: var(--accent); }
+  .badge { background: rgba(63,182,255,.12); color: var(--accent); border: 1px solid rgba(63,182,255,.35);
+           padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 20px; margin-bottom: 18px; }
+  h2 { font-size: 15px; margin-bottom: 12px; color: var(--text); }
+  label { color: var(--muted); font-size: 13px; }
+  input[type=text] { width: 100%; background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+                     border-radius: 6px; padding: 10px 12px; font-size: 14px; margin: 8px 0 14px; }
+  input[type=text]:focus { outline: none; border-color: var(--accent); }
+  .btn { background: var(--accent); color: #06121d; border: 0; border-radius: 6px; padding: 10px 22px;
+         font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  /* 进度 */
+  .progress-track { height: 8px; background: var(--panel2); border-radius: 6px; overflow: hidden; margin: 10px 0; }
+  .progress-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2));
+                  border-radius: 6px; transition: width .4s; }
+  .status-line { color: var(--muted); font-size: 13px; }
+  /* 结果 */
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tab { background: var(--panel2); color: var(--muted); border: 1px solid var(--line); border-radius: 6px;
+         padding: 6px 14px; cursor: pointer; font-size: 13px; }
+  .tab.active { color: var(--accent); border-color: var(--accent); }
+  .content { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+             padding: 16px; overflow-x: auto; min-height: 260px; }
+  .content table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .content th, .content td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+  .content th { background: rgba(63,182,255,.08); }
+  .content code { background: #0d1117; border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+  .content pre { background: #0d1117; border: 1px solid var(--line); border-radius: 6px; padding: 12px;
+                 overflow-x: auto; font-size: 12.5px; white-space: pre-wrap; }
+  .content h2 { font-size: 17px; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin: 18px 0 10px; }
+  .content blockquote { border-left: 3px solid var(--warn); background: rgba(210,153,34,.08);
+                        padding: 8px 12px; margin: 8px 0; color: #d8c08a; }
+  .content ul { padding-left: 20px; }
+  /* 弹窗 */
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: none;
+                align-items: center; justify-content: center; z-index: 99; }
+  .modal-mask.show { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+           max-width: 640px; width: 92%; padding: 24px; }
+  .modal h3 { font-size: 16px; margin-bottom: 8px; }
+  .modal .commit { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+                   padding: 10px 12px; margin: 8px 0; font-size: 13px; color: var(--muted); }
+  .modal label.final { display: block; background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.35);
+                       border-radius: 8px; padding: 12px; margin: 12px 0; font-size: 14px; color: var(--text); cursor: pointer; }
+  .modal .btns { display: flex; gap: 10px; justify-content: flex-end; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 30px; line-height: 1.9; }
+  .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: var(--panel2);
+           border: 1px solid var(--line); color: var(--text); padding: 10px 18px; border-radius: 8px;
+           display: none; z-index: 100; font-size: 13px; }
+  .toast.error { border-color: var(--danger); color: #ff9b94; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">gvl-recon <span>·</span> 前端静态源码业务链路解析工具</div>
+    <div class="badge">纯静态情报分析 · 零主动探测发包</div>
+  </header>
+
+  <!-- 输入区 -->
+  <div class="card">
+    <h2>目标站点</h2>
+    <label>输入站点地址，工具将仅下载其公开的静态 HTML / JS / 配置文件</label>
+    <input type="text" id="target" placeholder="http://vul001.test 或 https://example.com">
+    <button class="btn" id="startBtn" onclick="openModal()">开始分析</button>
+    <div class="hint">本工具不会对提取到的任何接口发包、不扫描端口、不 Fuzz、不爆破、不做漏洞验证。</div>
+  </div>
+
+  <!-- 进度区 -->
+  <div class="card" id="progressCard" style="display:none">
+    <h2>任务进度</h2>
+    <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+    <div class="status-line" id="statusLine">排队中…</div>
+    <div class="hint" id="taskIdHint"></div>
+  </div>
+
+  <!-- 结果区 -->
+  <div class="card" id="resultCard" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <h2 style="margin-bottom:0">分析结果</h2>
+      <div style="display:flex;gap:8px">
+        <a class="btn btn-ghost" id="downloadBtn" style="text-decoration:none;font-size:13px;padding:7px 14px" href="#" download>下载 Markdown 报告</a>
+      </div>
+    </div>
+    <div class="tabs" style="margin-top:14px">
+      <div class="tab active" data-tab="report" onclick="switchTab('report')">报告预览</div>
+      <div class="tab" data-tab="interfaces" onclick="switchTab('interfaces')">接口清单</div>
+      <div class="tab" data-tab="chains" onclick="switchTab('chains')">业务链路</div>
+    </div>
+    <div class="content" id="tabReport"></div>
+    <div class="content" id="tabInterfaces" style="display:none"></div>
+    <div class="content" id="tabChains" style="display:none"></div>
+  </div>
+
+  <footer>
+    边界铁律：本工具仅采集网站公开静态 HTML、JS 源码，<b>不会探测、发包、扫描任何接口</b>。<br>
+    所有接口连通性测试、漏洞验证、业务伤害判定均由人工完成；使用者必须持有目标站点<b>书面授权</b>。<br>
+    所有风险结论均为【静态源码推断，未实测】。
+  </footer>
+</div>
+
+<!-- 授权确认弹窗 -->
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3>🔒 授权确认</h3>
+    <div class="hint" style="margin-bottom:10px">目标站点：<b id="modalTarget" style="color:var(--accent)"></b></div>
+    <div class="commit">① 我已确认目标站点为本组织合法拥有，或已取得目标站点所有者/运营方的<b>书面授权</b>；</div>
+    <div class="commit">② 我了解本工具仅下载公开静态资源，不会对任何接口发包、扫描、爆破或验证；</div>
+    <div class="commit">③ 我理解所有风险结论为【静态源码推断，未实测】，最终验证由人工完成并自负合规责任。</div>
+    <label class="final">
+      <input type="checkbox" id="agreeBox"> 我已阅读并同意上述承诺，确认持有目标站点书面授权。
+    </label>
+    <div class="btns">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn" id="confirmBtn" onclick="startTask()">同意并开始分析</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+let currentTaskId = null;
+let pollTimer = null;
+let tabData = { interfaces: null, chains: null };
+
+// ---------- 弹窗 ----------
+function openModal() {
+  const t = document.getElementById("target").value.trim();
+  if (!t) return toast("请先输入目标站点地址", true);
+  document.getElementById("modalTarget").textContent = t;
+  document.getElementById("agreeBox").checked = false;
+  document.getElementById("modalMask").classList.add("show");
+}
+function closeModal() { document.getElementById("modalMask").classList.remove("show"); }
+
+// ---------- 任务创建与轮询 ----------
+async function startTask() {
+  const t = document.getElementById("target").value.trim();
+  if (!document.getElementById("agreeBox").checked) return toast("请先勾选授权承诺", true);
+  closeModal();
+  document.getElementById("startBtn").disabled = true;
+  document.getElementById("progressCard").style.display = "block";
+  document.getElementById("resultCard").style.display = "none";
+  setProgress(2, "提交任务…");
+  try {
+    const resp = await fetch("/api/task", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: t, confirmed: true })
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || "创建任务失败");
+    currentTaskId = data.task_id;
+    document.getElementById("taskIdHint").textContent = "任务ID：" + currentTaskId;
+    pollTimer = setInterval(pollTask, 1500);
+  } catch (e) {
+    document.getElementById("startBtn").disabled = false;
+    document.getElementById("progressCard").style.display = "none";
+    toast("创建任务失败：" + e.message, true);
+  }
+}
+
+async function pollTask() {
+  if (!currentTaskId) return;
+  try {
+    const resp = await fetch("/api/task/" + currentTaskId);
+    const state = await resp.json();
+    if (!resp.ok) throw new Error(state.detail || "查询失败");
+    setProgress(state.progress, state.message || state.status);
+    if (state.status === "done") {
+      clearInterval(pollTimer);
+      await loadResults();
+      document.getElementById("startBtn").disabled = false;
+    } else if (state.status === "failed") {
+      clearInterval(pollTimer);
+      document.getElementById("startBtn").disabled = false;
+      toast("任务失败：" + (state.message || "未知错误"), true);
+    }
+  } catch (e) {
+    clearInterval(pollTimer);
+    document.getElementById("startBtn").disabled = false;
+    toast("轮询失败：" + e.message, true);
+  }
+}
+
+function setProgress(pct, msg) {
+  document.getElementById("progressBar").style.width = pct + "%";
+  document.getElementById("statusLine").textContent = `[${pct}%] ${msg}`;
+}
+
+// ---------- 结果加载 ----------
+async function loadResults() {
+  const reportResp = await fetch(`/api/task/${currentTaskId}/report`);
+  const reportData = await reportResp.json();
+  document.getElementById("tabReport").innerHTML = renderMarkdown(reportData.markdown || "");
+
+  const ifResp = await fetch(`/api/task/${currentTaskId}/interfaces`);
+  tabData.interfaces = await ifResp.json();
+  renderInterfaces();
+
+  const chResp = await fetch(`/api/task/${currentTaskId}/chains`);
+  tabData.chains = await chResp.json();
+  renderChains();
+
+  document.getElementById("downloadBtn").href = `/api/task/${currentTaskId}/download`;
+  document.getElementById("resultCard").style.display = "block";
+  switchTab("report");
+  toast("分析完成，报告已生成");
+}
+
+function renderInterfaces() {
+  const data = tabData.interfaces;
+  if (!data || !data.interfaces || !data.interfaces.length) {
+    document.getElementById("tabInterfaces").innerHTML = "<p>未提取到接口（目标可能无 JS 或无业务接口调用）。</p>";
+    return;
+  }
+  const rows = data.interfaces.map((it, i) =>
+    `<tr><td>${i + 1}</td><td><code>${esc(it.method)}</code></td><td><code>${esc(it.url)}</code></td>` +
+    `<td>${esc((it.params || []).join("、") || "-")}</td><td>${it.confidence === "高" ? "高（AST）" : "低（正则）"}</td>` +
+    `<td>${esc((it.source_files || []).join("<br>"))}</td></tr>`).join("");
+  document.getElementById("tabInterfaces").innerHTML =
+    `<table><thead><tr><th>#</th><th>方法</th><th>接口路径</th><th>参数</th><th>置信度</th><th>来源</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderChains() {
+  const data = tabData.chains;
+  if (!data || !data.chains || !data.chains.length) {
+    document.getElementById("tabChains").innerHTML = "<p>未组装出业务链路。</p>";
+    return;
+  }
+  const blocks = data.chains.map(c =>
+    `<div style="margin-bottom:18px;padding:12px;background:#0d1117;border:1px solid var(--line);border-radius:8px">
+      <b style="color:var(--accent)">【链路编号】${esc(c.link_id)}</b><br>
+      ▸ 业务起点：${esc(c.business_start)}<br>
+      ▸ 调用核心接口：<code>${esc(c.core_api)}</code><br>
+      ▸ 数据流：${esc(c.data_flow.input)} → ${esc(c.data_flow.flow)}<br>
+      ▸ 漏洞类型映射：${esc(c.vuln_mapping.family)} → ${esc(c.vuln_mapping.sub)}（${esc(c.vuln_mapping.harm)}）<br>
+      ▸ 静态推导风险【静态源码推断，未实测】：${esc((c.static_risk || []).join("；"))}<br>
+      ▸ 置信度：${esc(c.confidence)}
+     </div>`).join("");
+  document.getElementById("tabChains").innerHTML = blocks;
+}
+
+// ---------- Tab 切换 ----------
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach(el => el.classList.toggle("active", el.dataset.tab === name));
+  document.getElementById("tabReport").style.display = name === "report" ? "" : "none";
+  document.getElementById("tabInterfaces").style.display = name === "interfaces" ? "" : "none";
+  document.getElementById("tabChains").style.display = name === "chains" ? "" : "none";
+}
+
+// ---------- 极简 Markdown 渲染（离线，无外部依赖） ----------
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function inline(s) {
+  s = esc(s);
+  s = s.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  return s;
+}
+function renderMarkdown(md) {
+  const lines = md.split("\n");
+  let html = "", inCode = false, codeBuf = [], inTable = false, tableRows = [];
+  const flushTable = () => {
+    if (!tableRows.length) return;
+    const head = tableRows[0].split("|").filter(x => x.trim()).map(x => inline(x.trim()));
+    const body = tableRows.slice(2).map(r => r.split("|").filter(x => x.trim()).map(x => inline(x.trim())));
+    html += "<table><thead><tr>" + head.map(h => "<th>" + h + "</th>").join("") + "</tr></thead><tbody>" +
+      body.map(b => "<tr>" + b.map(c => "<td>" + c + "</td>").join("") + "</tr>").join("") + "</tbody></table>";
+    tableRows = [];
+  };
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (line.startsWith("```")) {
+      if (inCode) { html += "<pre>" + esc(codeBuf.join("\n")) + "</pre>"; codeBuf = []; inCode = false; }
+      else { flushTable(); inCode = true; }
+      continue;
+    }
+    if (inCode) { codeBuf.push(line); continue; }
+    if (line.startsWith("|")) { inTable = true; tableRows.push(line); continue; }
+    if (inTable) { flushTable(); inTable = false; }
+    if (!line) { continue; }
+    if (line.startsWith("### ")) { html += "<h3>" + inline(line.slice(4)) + "</h3>"; }
+    else if (line.startsWith("## ")) { html += "<h2>" + inline(line.slice(3)) + "</h2>"; }
+    else if (line.startsWith("# ")) { html += "<h2>" + inline(line.slice(2)) + "</h2>"; }
+    else if (line.startsWith("> ")) { html += "<blockquote>" + inline(line.slice(2)) + "</blockquote>"; }
+    else if (/^\s*[-*]\s+/.test(line)) { html += "<li>" + inline(line.replace(/^\s*[-*]\s+/, "")) + "</li>"; }
+    else if (/^\s*\d+\.\s+/.test(line)) { html += "<li>" + inline(line.replace(/^\s*\d+\.\s+/, "")) + "</li>"; }
+    else { html += "<p>" + inline(line) + "</p>"; }
+  }
+  flushTable();
+  return html;
+}
+
+// ---------- Toast ----------
+let toastTimer = null;
+function toast(msg, isError) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "toast" + (isError ? " error" : "");
+  el.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.style.display = "none", 4000);
+}
+
+document.getElementById("target").addEventListener("keydown", e => { if (e.key === "Enter") openModal(); });
+</script>
+</body>
+</html>

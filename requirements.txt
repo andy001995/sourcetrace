@@ -1,0 +1,29 @@
+# gvl-recon 运行时依赖（Python 3.10+）
+# 安装：pip install -r requirements.txt
+
+httpx>=0.27.0           # HTTP 客户端（仅用于下载「公开静态资源」本身，绝不向提取 API 发包）
+beautifulsoup4>=4.12.3  # HTML 解析（提取静态资源链接）
+esprima>=4.0.1          # 纯 Python JS AST 解析器（稳定兜底，无外部二进制依赖）
+tree-sitter>=0.25       # 错误容忍 JS AST 解析器（首选：能解析现代/压缩 JS，
+tree-sitter-javascript>=0.25  #  可选链/顶层 await 等 esprima 盲区，语法错误不中断）
+
+fastapi>=0.111.0        # 网页版后端（形态A）
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# ------------------------------------------------------------------
+# 关于用户点名的 acorn-python：
+#   PyPI 官方源目前没有可用的 "acorn-python" JS 解析实现（仅有同名的
+#   acorn-py / acorn 等无关包）。因此代码按以下优先级自动探测，用户无感：
+#     1) acorn_python / acorn（若你通过第三方源安装了可用绑定，优先加载）
+#     2) esprima（默认稳定解析器，上方的 esprima 依赖已保证可用）
+#     3) 纯正则兜底（置信度标"低"）
+# ------------------------------------------------------------------
+
+# 可选增强：jsluice（Go 编写的 JS URL 提取器）
+#   官方无 pip 包，需自行构建二进制放入 bin/ 目录，程序自动按平台加载：
+#   go install github.com/BishopFox/jsluice@latest
+#   详见 bin/README.md
+
+# 打包（仅运行 build_exe.py 时需要）
+# pyinstaller>=6.0

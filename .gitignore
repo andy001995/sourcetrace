@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 虚拟环境
+.venv/
+venv/
+venv_*/
+
+# 输出目录（含靶场真实数据）
+output/
+output_*/
+output_test/
+output_tree/
+output_mytest/
+
+# 打包产物
+dist/
+build/
+*.spec
+
+# IDE
+.vscode/
+.idea/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+
+# 运行时数据库
+task.db
+*.db
+*.sqlite
