@@ -33,6 +33,13 @@ class ReportGenerator:
         merged: dict[str, dict] = {}
         order: list[str] = []
 
+        # 已产出接口的源文件集合（去掉行号），这些文件即使名字像 vendor 也按业务文件处理
+        extracted_sources: set[str] = set()
+        for i in self.interfaces:
+            sf = (i.get("source_file") or "").strip()
+            if sf:
+                extracted_sources.add(sf.rsplit(":", 1)[0])
+
         def add(url: str, kind: str, ref: str) -> None:
             if not url:
                 return
@@ -41,7 +48,7 @@ class ReportGenerator:
                     "url": url,
                     "kind": kind or "js",
                     "ref_from": [],
-                    "vendor": is_vendor_asset(url),
+                    "vendor": url not in extracted_sources and is_vendor_asset(url),
                     "downloaded": url in js_urls,
                 }
                 order.append(url)
@@ -116,9 +123,8 @@ class ReportGenerator:
                   "接口连通性测试、漏洞验证与业务伤害判定必须由人工完成。\n")
 
         # ---------- 一、概览 ----------
-        ast_cnt = sum(1 for i in self.interfaces if i.get("extract_type") in ("ast", "ast_wrapper"))
-        regex_cnt = sum(1 for i in self.interfaces
-                        if i.get("extract_type") in ("regex", "regex_member", "regex_wrapper", "jsluice"))
+        high_cnt = sum(1 for i in self.interfaces if i.get("confidence") == "高")
+        low_cnt  = sum(1 for i in self.interfaces if i.get("confidence") in ("低", "中"))
         secrets = self.extra.get("secrets", [])
         vendor_cnt = sum(1 for a in self.static_assets if a["vendor"])
         md.append("## 一、概览\n")
@@ -126,8 +132,8 @@ class ReportGenerator:
         md.append("| 指标 | 数值 |")
         md.append("| --- | --- |")
         md.append(f"| 业务 API 总数 | {len(self.interfaces)} 条 |")
-        md.append(f"| AST 直接命中（高置信） | {ast_cnt} 条 |")
-        md.append(f"| 正则兜底（低置信） | {regex_cnt} 条 |")
+        md.append(f"| 高置信（AST 直接命中） | {high_cnt} 条 |")
+        md.append(f"| 低置信（正则/动态拼接兜底） | {low_cnt} 条 |")
         md.append(f"| 业务链路 | {len(self.chains)} 条 |")
         md.append("")
         md.append("**静态资源（HTML 引用，见 static_assets.json，不计为接口）**\n")
