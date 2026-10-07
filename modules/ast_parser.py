@@ -294,15 +294,16 @@ class ASTApiParser:
             # 传统 jQuery 网站等场景：没有现代 API 调用时如实返回空，不拿静态资源凑数
             logger.info("接口提取完成：未在前端 JS 中发现 API 调用（静态资源已单独归类，不凑数）")
         else:
+            high_cnt = sum(1 for i in self.interfaces if i.get("confidence") == "高")
+            low_cnt = sum(1 for i in self.interfaces if i.get("confidence") in ("低", "中"))
             logger.info(
-                "接口提取完成：原始 %d 条，过滤噪音后 %d 条（解析器: %s，AST 高置信 %d / 正则兜底 %d），"
+                "接口提取完成：原始 %d 条，过滤噪音后 %d 条（解析器: %s，高置信 %d / 低置信 %d），"
                 "硬编码密钥 %d 条",
                 raw_count,
                 len(self.interfaces),
                 parser_note,
-                sum(1 for i in self.interfaces if i.get("extract_type") in ("ast", "ast_wrapper")),
-                sum(1 for i in self.interfaces
-                    if i.get("extract_type") in ("regex", "regex_member", "regex_wrapper", "jsluice")),
+                high_cnt,
+                low_cnt,
                 len(self.secrets),
             )
         return self.interfaces
