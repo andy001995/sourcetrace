@@ -4,6 +4,12 @@
 import os
 import pathlib
 
+# ============ 项目信息 ============
+PROJECT_NAME = "星巡 · 源链"
+PROJECT_NAME_EN = "SourceTrace"
+PROJECT_SERIES = "星巡"
+PROJECT_VERSION = "1.0.0"
+
 # ============ 路径 ============
 BASE_DIR = pathlib.Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"          # 报告输出目录
@@ -27,7 +33,7 @@ ALLOW_CROSS_ORIGIN_STATIC = os.getenv("ALLOW_CROSS_ORIGIN_STATIC", "0") == "1"
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10"))
 USER_AGENT = os.getenv(
     "USER_AGENT",
-    "Mozilla/5.0 (compatible; gvl-recon/1.0; passive static-resource analysis; "
+    "Mozilla/5.0 (compatible; sourcetrace/1.0; passive static-resource analysis; "
     "only downloads public HTML/JS/CSS)",
 )
 

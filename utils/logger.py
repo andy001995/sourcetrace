@@ -13,7 +13,7 @@ _console.setFormatter(_FORMATTER)
 _file = logging.FileHandler(BASE_DIR / "task.log", encoding="utf-8")
 _file.setFormatter(_FORMATTER)
 
-logger = logging.getLogger("gvl-recon")
+logger = logging.getLogger("sourcetrace")
 logger.setLevel(logging.INFO)
 logger.addHandler(_console)
 logger.addHandler(_file)

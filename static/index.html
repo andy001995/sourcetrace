@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>gvl-recon · 前端静态源码业务链路解析工具</title>
+<title>星巡 · 源链（SourceTrace）</title>
 <style>
   :root {
     --bg: #0d1117; --panel: #161b22; --panel2: #1c2330; --line: #2d333b;
@@ -74,7 +74,7 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">gvl-recon <span>·</span> 前端静态源码业务链路解析工具</div>
+    <div class="logo">星巡 · 源链 <span>·</span> SourceTrace</div>
     <div class="badge">纯静态情报分析 · 零主动探测发包</div>
   </header>
 
@@ -82,7 +82,7 @@
   <div class="card">
     <h2>目标站点</h2>
     <label>输入站点地址，工具将仅下载其公开的静态 HTML / JS / 配置文件</label>
-    <input type="text" id="target" placeholder="http://vul001.test 或 https://example.com">
+    <input type="text" id="target" placeholder="http://内部靶场 或 https://example.com">
     <button class="btn" id="startBtn" onclick="openModal()">开始分析</button>
     <div class="hint">本工具不会对提取到的任何接口发包、不扫描端口、不 Fuzz、不爆破、不做漏洞验证。</div>
   </div>

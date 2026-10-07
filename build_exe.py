@@ -5,8 +5,8 @@
 #   pip install pyinstaller
 #   python build_exe.py
 #
-# 产物：dist/gvl-recon(.exe)
-# 命令行：gvl-recon.exe --target http://xxx --output ./output/
+# 产物：dist/sourcetrace(.exe)
+# 命令行：sourcetrace.exe --target http://xxx --output ./output/
 import os
 import pathlib
 import sys
@@ -26,7 +26,7 @@ def main() -> None:
 
     args = [
         "main.py",                      # 入口（CLI）
-        "--name", "gvl-recon",
+        "--name", "sourcetrace",
         "--onefile",                    # 单文件
         "--console",                    # 控制台程序
         "--add-data", f"static{sep}static",
@@ -41,9 +41,9 @@ def main() -> None:
         "--clean",
     ]
 
-    print("正在打包 gvl-recon 单文件可执行程序 …")
+    print("正在打包 sourcetrace 单文件可执行程序 …")
     PyInstaller.__main__.run(args)
-    print(f"完成！产物：{BASE_DIR / 'dist' / ('gvl-recon.exe' if os.name == 'nt' else 'gvl-recon')}")
+    print(f"完成！产物：{BASE_DIR / 'dist' / ('sourcetrace.exe' if os.name == 'nt' else 'sourcetrace')}")
 
 
 if __name__ == "__main__":

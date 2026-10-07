@@ -40,7 +40,7 @@ from modules.llm_analyzer import LLMAnalyzer
 from modules.report_generator import ReportGenerator
 from utils.logger import logger
 
-app = FastAPI(title="gvl-recon 前端静态源码业务链路解析工具", version="1.0.0")
+app = FastAPI(title="星巡 · 源链（SourceTrace）", description="前端静态源码业务链路解析工具", version="1.0.0")
 
 # 内存态任务进度（供轮询，避免频繁读库）
 _TASK_STATE: dict[str, dict] = {}
@@ -108,6 +108,7 @@ async def run_pipeline(task_id: str, target: str, client_ip: str, out_dir: Path)
             "crashed_files": parser.crashed_files,
             "missing_chunks": collector.missing_chunks,
             "resource_refs": collector.resource_refs,
+            "js_urls": list(js_store.keys()),
         })
         generator.generate(target, out_dir)
 
@@ -193,7 +194,7 @@ async def task_download(task_id: str):
     md_path = _report_dir(task_id) / "report.md"
     if not md_path.exists():
         raise HTTPException(status_code=404, detail="报告尚未生成")
-    return FileResponse(md_path, filename=f"gvl-recon-{task_id[:8]}.md",
+    return FileResponse(md_path, filename=f"sourcetrace-{task_id[:8]}.md",
                         media_type="text/markdown; charset=utf-8")
 
 

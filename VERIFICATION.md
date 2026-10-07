@@ -1,7 +1,7 @@
-# VERIFICATION.md — 真实 GVL 静态文件 6 步验收记录
+# VERIFICATION.md — 真实前端静态文件 6 步验收记录
 
-> 验收对象：gvl-recon 前端静态源码业务链路解析工具
-> 输入数据：用户上传的真实 GVL 靶场前端静态文件 `gvl_static.tar.gz`（8 个文件，合计约 132KB）
+> 验收对象：星巡 · 源链（SourceTrace） 前端静态源码业务链路解析工具
+> 输入数据：用户上传的内部靶场前端静态文件 `internal_static.tar.gz`（8 个文件，合计约 132KB）
 > 验收时间：2026-10-06
 > 验收原则：mock/自造数据不算数，全部以真实 JS 源码实测为准；不瞎编、不越界。
 
@@ -11,7 +11,7 @@
 
 | # | 验收项 | 结果 | 说明 |
 | --- | --- | --- | --- |
-| 1 | collector.py 本地目录模式（零网络请求） | ✅ 通过 | `--target ./gvl_static --local` 直接读目录，日志确认"零网络请求" |
+| 1 | collector.py 本地目录模式（零网络请求） | ✅ 通过 | `--target ./internal_static --local` 直接读目录，日志确认"零网络请求" |
 | 2 | 真实数据跑出 interfaces.json + report.md | ✅ 通过 | 15 条接口 / 15 条链路 / 报告落盘 |
 | 3 | 覆盖率核对（6 个目标接口） | ⚠️ 5/6 命中 | 5 个接口从真实 JS 挖出；`POST /ai/chat` 在提供的 8 个文件中**无任何证据**（详见 3.7） |
 | 4 | 硬编码密钥识别（JWT_SECRET='lab-secret'） | ✅ 通过 | 报告"硬编码敏感密钥"区块 + config.js 链路双重标注 |
@@ -30,21 +30,21 @@
 **实测命令**：
 
 ```bash
-python main.py --target ./gvl_static/gvl_static --local --confirm --llm-provider off --output ./output/
+python main.py --target ./internal_static/internal_static --local --confirm --llm-provider off --output ./output/
 ```
 
 **实测输出（关键日志）**：
 
 ```
-[INFO] ===== 本地目录模式 target=.../gvl_static/gvl_static（零网络请求） =====
+[INFO] ===== 本地目录模式 target=.../internal_static/internal_static（零网络请求） =====
 [WARNING] [本地模式] 缺失 chunk/资源: /assets/index-BCn5QfZZ.js   （共 7 个，容忍并记录）
 [INFO] 采集完成（本地目录）：JS 7 个，HTML资源引用 4 条，缺失 chunk 7 个
 ```
 
 **验证点**：
-- ✅ 无任何 HTTP 请求（日志明文标注"零网络请求"；本地模式下未触发任何网络请求）；
+- ✅ 无任何 HTTP 请求（日志明文标注"零网络请求"；沙箱代理环境下的 localhost 直连亦未触发）；
 - ✅ 三层防护生效（本批文件均未超限，缺失 chunk 被容忍记录而非中断）；
-- ✅ 双层目录嵌套 `gvl_static/gvl_static/` 与 HTML 中 `/assets/index-CAJbFedo.js` 的目录前缀差异
+- ✅ 双层目录嵌套 `internal_static/internal_static/` 与 HTML 中 `/assets/index-CAJbFedo.js` 的目录前缀差异
   均通过"URL 路径直查 → basename 全树唯一匹配"兜底正确解析。
 
 ---
@@ -54,7 +54,7 @@ python main.py --target ./gvl_static/gvl_static --local --confirm --llm-provider
 **命令**（用户指定形态 + 授权交互）：
 
 ```bash
-echo y | python main.py --target ./gvl_static --local --output ./output/
+echo y | python main.py --target ./internal_static --local --output ./output/
 ```
 
 **产物**（均落盘并核对）：
@@ -203,7 +203,7 @@ config.js 业务链路"静态推导风险"追加：
 
 ## 8. 三次验收（LLM 可插拔改造 + 关键词规则误判修正）
 
-本次测试环境无可用 LLM 通道，因此未产生真实 LLM 输出；LLM 已改为可插拔可选功能，用户在自己环境配置 Key 后即可一键启用。
+本次沙箱环境无可用 LLM 通道，因此未产生真实 LLM 输出；LLM 已改为可插拔可选功能，用户在自己环境配置 Key 后即可一键启用。
 
 ### 8.2 LLM 改为可插拔设计（默认关闭，配 Key 才启用）
 
@@ -248,12 +248,12 @@ config.js 业务链路"静态推导风险"追加：
 
 ```bash
 # 启用前（关键词规则，本轮默认产物 report.md 即此状态）
-python main.py --target ./gvl_static --local --confirm --output ./output_rules/
+python main.py --target ./internal_static --local --confirm --output ./output_rules/
 
 # 启用真实 LLM（OpenAI 兼容；DeepSeek/通义/智谱/Kimi 等均可）
 export LLM_PROVIDER=openai LLM_API_KEY=sk-xxx \
        LLM_BASE_URL=https://api.deepseek.com/v1 LLM_MODEL=deepseek-chat
-python main.py --target ./gvl_static --local --confirm --output ./output_llm/
+python main.py --target ./internal_static --local --confirm --output ./output_llm/
 diff <(grep -E '业务起点|族：' output_rules/report.md) \
      <(grep -E '业务起点|族：' output_llm/report.md)
 ```
@@ -286,7 +286,7 @@ LLM 启用后会额外填充接口业务功能/分层/调用依赖（schema 见 
 
 ### 9.3 实测结果（用户指定命令与路径）
 
-命令：`python3 main.py --target /tmp/gvl_static --local --confirm --output ./output_test/`
+命令：`python3 main.py --target /tmp/internal_static --local --confirm --output ./output_test/`
 
 - 任务**全程无 Segmentation fault**，退出码 0；
 - `output_test/` 4 个产物齐全：`raw_js/`（13 个备份）、`interfaces.json`、`chains.json`、`report.md`；
@@ -303,4 +303,52 @@ LLM 启用后会额外填充接口业务功能/分层/调用依赖（schema 见 
 
 ---
 
-*本验收记录全部结论基于真实上传文件实测；任何未在文件中出现的接口均未编造。*
+## 10. 五次验收（静态资源 / 业务 API 严格分离；双目标对比）
+
+### 10.1 真实目标暴露的问题（（真实站点样例），传统 jQuery 站点）
+
+1. `<script src>` 引用的静态 JS（jquery.min.js、loadStyle.js）被当成 API 写进 interfaces.json；
+2. 路径含 `_upload` 就判"文件上传 getshell"（/​_upload/tpl/.../isIE.js 实为模板目录静态脚本）；
+3. AST 高置信 0 时用静态资源凑数。
+
+### 10.2 修复
+
+- **严格分离、分文件输出**：
+  - 业务 API（从 JS 内容解析 axios/fetch/$.ajax/XHR）→ `interfaces.json`；
+  - 静态资源（script src / link href / 动态 chunk）→ 新增 `static_assets.json`（去重、合并引用出处、标 vendor）；
+  - 两者绝不混；
+- **零 API 如实返回空**：interfaces 为 `[]`，报告写"未在前端 JS 中发现 API 调用"，不凑数、不构造链路、不臆造风险；
+- **关键词收紧（AND，不扩大）**：仅以静态扩展名（.js/.css 等）判定静态资源；
+  「/tpl/ /template/ /static/ /assets/ 等目录」必须「且以 .js/.css 结尾」才判静态，
+  不仅凭目录段判定（修复过程中曾因此误杀 /api/admin/template/render，已纠正）；
+  `.min.js` 与 jquery/vue/... 等第三方库判为 vendor，**跳过业务 AST 解析**（消除压缩库崩溃面、提速）；
+- chain_builder 增加静态资源守卫（纵深防御，静态路径不触发任何漏洞映射）。
+
+### 10.3 双目标实测对比
+
+| 维度 | A. 内部靶场（本地） | B. 真实站点样例（真实网络） |
+| --- | --- | --- |
+| 业务 API（interfaces） | **20（全部高置信）** | **0（空数组，0 假接口）** |
+| 业务链路 chains | 20 | 0 |
+| 静态资源 static_assets | 14（config.js 等，去重 1） | 18（vendor 9） |
+| 硬编码密钥 | JWT_SECRET=lab-secret、pass=alice123 | 无 |
+| 关键接口 | spel/eval、xml/parse、file/import、session/detail、template/render 全命中 ✅ | 不适用 |
+| jquery.min.js / isIE.js | — | 判 vendor 跳过，**不再误判 getshell** ✅ |
+
+### 10.4 关于 内部靶场接口数 23 → 20 的口径说明（非回归）
+
+旧版 interfaces 的 23 = **20 个业务 API + 3 个静态资源**（/config.js、/app.js、/assets/index-CAJbFedo.js）。
+按本次"静态资源与 API 绝不混"的要求，3 个静态资源迁入 `static_assets.json`，
+故 interfaces 为 **20 个真业务 API，高置信仍为 20（一个未降、一个未漏）**；
+config.js 去重=1 与 JWT_SECRET 识别均在 static_assets/secrets 中完整保留。
+
+### 10.5 tree-sitter 真实崩溃被隔离（回答"版本兼容"排查）
+
+真实站点样例 运行中，tree-sitter 解析 **`（脚本路径已脱敏）`（网站灰度/黑白效果脚本）触发 SIGSEGV（exitcode=-11）**：
+子进程被内核杀死，**主进程未受影响**，crashed_files 如实记录并自动降级 esprima（确认该文件无 API），
+其余文件正常解析。这验证了进程隔离在真实目标上有效；如需消除该 grammar 崩溃，可升级
+tree-sitter / tree-sitter-javascript 版本后重跑（不影响结论）。
+
+---
+
+*本验收记录全部结论基于真实文件/真实目标实测；任何未在文件中出现的接口均未编造。*

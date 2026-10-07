@@ -2,9 +2,9 @@
 # 命令行入口（形态B：一键 exe 的核心；形态C：Docker 亦可调用）
 #
 # 用法：
-#   python main.py --target http://vul001.test --output ./output/
-#   python main.py --target http://vul001.test --llm-provider ollama --confirm
-#   python main.py --target ./gvl_static --local --output ./output/   # 本地目录模式，零网络请求
+#   python main.py --target http://example.com --output ./output/
+#   python main.py --target http://example.com --llm-provider ollama --confirm
+#   python main.py --target ./internal_static --local --output ./output/   # 本地目录模式，零网络请求
 #
 # 端到端 5 阶段编排：
 #   阶段1 前置准入校验(auth_check) -> 阶段2 静态资源采集(collector)
@@ -28,10 +28,10 @@ from modules.report_generator import ReportGenerator
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="gvl-recon",
-        description="前端静态源码业务链路解析工具（纯静态情报分析，零主动探测发包）",
+        prog="sourcetrace",
+        description="星巡 · 源链（SourceTrace）v1.0 — 前端静态源码业务链路解析工具（纯静态情报分析，零主动探测发包）",
     )
-    parser.add_argument("--target", "-t", required=True, help="目标站点地址，如 http://vul001.test；或本地目录，如 ./gvl_static")
+    parser.add_argument("--target", "-t", required=True, help="目标站点地址，如 http://example.com；或本地目录，如 ./internal_static")
     parser.add_argument("--output", "-o", default=str(OUTPUT_DIR), help="报告输出目录（默认 ./output）")
     parser.add_argument("--local", action="store_true",
                         help="本地目录模式：直接读取 target 目录下全部文件，零网络请求（离线测试/审计打包源码）")
@@ -100,6 +100,7 @@ async def run_pipeline(target: str, output_dir: Path, provider: str,
         "crashed_files": parser.crashed_files,    # tree-sitter 子进程崩溃/超时降级文件
         "missing_chunks": collector.missing_chunks,  # 本地模式缺失 chunk
         "resource_refs": collector.resource_refs,    # HTML 静态资源引用
+        "js_urls": list(js_store.keys()),            # 已下载 JS（static_assets 下载判定）
         "local_mode": local,
     })
     out, md = generator.generate(target, output_dir)

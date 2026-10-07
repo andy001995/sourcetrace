@@ -1,9 +1,12 @@
-# gvl-recon 容器镜像（形态C：开发者）
+# sourcetrace 容器镜像（形态C：开发者）
 # 用法：
-#   docker build -t gvl-recon .
-#   docker run -p 8000:8000 gvl-recon                     # 网页版
-#   docker run gvl-recon python main.py --target http://vul001.test --output /app/output  # CLI
+#   docker build -t sourcetrace .
+#   docker run -p 8000:8000 sourcetrace                     # 网页版
+#   docker run sourcetrace python main.py --target http://example.com --output /app/output  # CLI
 FROM python:3.10-slim
+LABEL org.opencontainers.image.title="星巡 · 源链（SourceTrace）"
+LABEL org.opencontainers.image.description="前端静态源码业务链路解析工具 · 零主动探测"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
 
 WORKDIR /app
 
