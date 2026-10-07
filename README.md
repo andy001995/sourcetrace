@@ -1,6 +1,6 @@
 # 星巡 · 源链（SourceTrace）
 
-![Release](https://img.shields.io/github/v/release/andy001995/sourcetrace)
+![Version](https://img.shields.io/badge/version-v1.0.0-brightgreen)
 ![Stars](https://img.shields.io/github/stars/andy001995/sourcetrace)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-green)
