@@ -23,7 +23,7 @@ from urllib.parse import parse_qsl, urlparse
 from config import BIN_DIR, TS_FILE_TIMEOUT
 from utils.dedup import dedup_interfaces
 from utils.logger import logger
-from utils.normalize import is_http_url
+from utils.normalize import is_http_url, is_static_asset, is_vendor_asset
 
 # ==================== 解析器加载（按优先级） ====================
 try:  # 1) acorn-python（用户点名的默认实现，若环境中已安装）
@@ -104,6 +104,7 @@ _REGEX_PATTERNS = (
     (r"(?:axios|http|https|request)\.(get|post|put|patch|delete|head)\s*\(\s*['\"]([^'\"]+)['\"]", None, None),
     # $.get/$.post/$.ajax('url') 与 jQuery 别名
     (r"\$\s*\.\s*(?:ajax|get|post|put|delete)\s*\(\s*['\"]([^'\"]+)['\"]", None, None),
+    (r"\$\s*\.\s*(?:ajax|get|post|put|delete)\s*\(\s*\{[^}]{0,500}?url\s*:\s*['\"]([^'\"]+)['\"]", None, None),
     # XHR: xhr.open('POST', '/url')
     (r"\.open\s*\(\s*['\"](GET|POST|PUT|PATCH|DELETE|HEAD)['\"]\s*,\s*['\"]([^'\"]+)['\"]", None, None),
     # 模板字符串中的接口路径 /api/xxx/${id}
@@ -193,7 +194,7 @@ def _sanitize_js(code: str) -> str:
 
 
 def _is_noise(item: dict) -> bool:
-    """过滤噪音：非 http(s)、遥测域名、静态资源扩展名、空路径、无路径标识。"""
+    """过滤噪音：非 http(s)、遥测域名、静态资源（含 .js/.min.js/模板目录）、空路径、无路径标识。"""
     url = item.get("url", "")
     parsed = urlparse(url)
     if not is_http_url(url):
@@ -201,7 +202,8 @@ def _is_noise(item: dict) -> bool:
     host = parsed.netloc.lower()
     if any(h in host for h in _NOISE_HOSTS):
         return True
-    if parsed.path.lower().endswith(_STATIC_EXTS):
+    # 静态资源一律不是业务 API：以静态扩展名结尾（.js/.css/.min.js 等）或位于静态/模板目录
+    if is_static_asset(url):
         return True
     if parsed.path in ("", "/"):
         return True
@@ -249,7 +251,14 @@ class ASTApiParser:
             logger.info("识别到封装函数 %d 个: %s", len(self.wrapper_index),
                         ", ".join(list(self.wrapper_index)[:10]))
 
+        vendor_skipped = []
         for url, code in self.js_store.items():
+            # 第三方/公共库（jquery.min.js 等）不做业务解析：
+            #   1) 压缩库与业务接口无关；2) 压缩大文件易触发 tree-sitter 崩溃。
+            # 仅在采集层已备份，这里整体跳过，避免假接口与崩溃。
+            if is_vendor_asset(url, content=code):
+                vendor_skipped.append(url)
+                continue
             self._extract_base_urls(code)
             self._extract_ws(code, url)
             # 0) 硬编码敏感密钥扫描（如 JWT_SECRET='lab-secret'）
@@ -262,8 +271,11 @@ class ASTApiParser:
             if jsluice_bin:
                 self._jsluice_extract(code, url, jsluice_bin)
 
-        # HTML 引用的静态资源条目（/config.js 等配置资源，低置信；去重后每个 URL 仅 1 条）
-        self._inject_resource_refs()
+        # 注：HTML 引用的静态资源（<script src>/<link href>）不再混入 interfaces，
+        # 由报告层单独整理写入 static_assets.json（严格区分静态资源与业务 API）。
+        if vendor_skipped:
+            logger.info("跳过第三方/公共库 %d 个（不做业务解析）: %s",
+                        len(vendor_skipped), ", ".join(vendor_skipped[:8]))
 
         raw_count = len(self.interfaces)
         self.interfaces = [i for i in self.interfaces if not _is_noise(i)]
@@ -278,17 +290,21 @@ class ASTApiParser:
             seen_keys.add(key)
             uniq_secrets.append(s)
         self.secrets = uniq_secrets
-        logger.info(
-            "接口提取完成：原始 %d 条，过滤噪音后 %d 条（解析器: %s，AST 高置信 %d / 正则/资源低置信 %d），"
-            "硬编码密钥 %d 条",
-            raw_count,
-            len(self.interfaces),
-            parser_note,
-            sum(1 for i in self.interfaces if i.get("extract_type") in ("ast", "ast_wrapper")),
-            sum(1 for i in self.interfaces
-                if i.get("extract_type") in ("regex", "regex_member", "regex_wrapper", "jsluice", "resource")),
-            len(self.secrets),
-        )
+        if not self.interfaces:
+            # 传统 jQuery 网站等场景：没有现代 API 调用时如实返回空，不拿静态资源凑数
+            logger.info("接口提取完成：未在前端 JS 中发现 API 调用（静态资源已单独归类，不凑数）")
+        else:
+            logger.info(
+                "接口提取完成：原始 %d 条，过滤噪音后 %d 条（解析器: %s，AST 高置信 %d / 正则兜底 %d），"
+                "硬编码密钥 %d 条",
+                raw_count,
+                len(self.interfaces),
+                parser_note,
+                sum(1 for i in self.interfaces if i.get("extract_type") in ("ast", "ast_wrapper")),
+                sum(1 for i in self.interfaces
+                    if i.get("extract_type") in ("regex", "regex_member", "regex_wrapper", "jsluice")),
+                len(self.secrets),
+            )
         return self.interfaces
 
     # ==================== 封装函数索引（预扫描全部源码） ====================
@@ -309,25 +325,6 @@ class ASTApiParser:
                         mapping.setdefault(pname, []).append(verb)
                 if mapping:
                     self.wrapper_index.setdefault(fn, {}).update(mapping)
-
-    # ==================== 静态资源条目 ====================
-    def _inject_resource_refs(self) -> None:
-        """把 HTML 引用的静态资源（script src / link href）作为「资源条目」输出。
-        典型：/config.js（配置脚本，可能内含硬编码密钥）——以 GET 资源形式记录，
-        去重后同一 URL 只出现 1 次。CSS 等静态资源会被噪音过滤规则剔除。
-        source_file 指向资源自身 URL（便于与密钥来源文件关联），引用出处放入 ref_from。"""
-        for ref in self.resource_refs:
-            url = ref.get("url") or ""
-            if not url:
-                continue
-            ref_src = ref.get("ref") or "index.html"
-            origin = f"{url}（HTML引用自 {ref_src}）"
-            item = {
-                "url": url, "method": "GET", "params": [],
-                "source_file": origin, "ref_from": ref_src,
-                "confidence": "低", "extract_type": "resource",
-            }
-            self.interfaces.append(item)
 
     # ==================== 硬编码敏感密钥 ====================
     def _extract_secrets(self, code: str, source_url: str) -> None:
@@ -360,7 +357,7 @@ class ASTApiParser:
             val = match.group(1).strip()
             if val and val not in self.base_urls:
                 self.base_urls.append(val)
-        # API 域名常量（INTERNAL_API = 'http://api.vul001.test/api/internal/'）
+        # API 域名常量（INTERNAL_API = 'http://api.example.com/api/internal/'）
         for match in _BASEURL_ALT_RE.finditer(code):
             val = match.group(1).strip()
             if val and val not in self.base_urls:
@@ -957,6 +954,21 @@ class ASTApiParser:
 
     # ==================== 正则兜底 ====================
     def _regex_extract(self, code: str, source_url: str) -> None:
+        # 剥离注释，避免误抓注释里的 URL（如废弃接口）
+        code = re.sub(r'/\*.*?\*/', '', code, flags=re.S)
+        code = re.sub(r'//[^\n]*', '', code)
+
+        # jQuery 变量拼接 URL 场景：url += "/_visitcountdisplay"
+        if re.search(r'\$\.(ajax|post|get|getJSON)\s*\(', code):
+            for m in re.finditer(
+                r'\burl\s*\+?=\s*["\'](/[a-zA-Z0-9_?=&./%-]{3,})["\']',
+                code
+            ):
+                path = m.group(1)
+                line = code.count("\n", 0, m.start()) + 1
+                self._emit(path, "GET", [], f"{source_url}:{line}", "低", "jquery_dynamic_url")
+        # === 原始正则逻辑 ===
+
         for pattern, fixed_method, _ in _REGEX_PATTERNS:
             for match in re.finditer(pattern, code, re.M):
                 groups = match.groups()
