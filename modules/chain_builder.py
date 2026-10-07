@@ -6,6 +6,7 @@
 # 否则 /api/admin/xml/parse 会被 "admin" 抢先误判为越权。
 import re
 from utils.logger import logger
+from utils.normalize import is_static_asset
 
 # 风险关键词 -> (漏洞族, 子类, 危害, 红队关注度, 白帽关注度)
 # 说明：这是纯静态推断的提示映射，最终判定必须由人工完成。
@@ -167,6 +168,11 @@ class ChainBuilder:
         return kw in blob
 
     def _map_risk(self, url: str, risk_dir: str) -> tuple[str, str, str, str, str]:
+        # 守卫：静态资源（.js/.css 结尾，或位于 /tpl/ /template/ /static/ /assets/ 等目录）
+        # 不做漏洞关键词映射。典型误判：/_upload/tpl/.../isIE.js 含 "upload" 字样，
+        # 但它是模板目录下的静态脚本，与文件上传功能无关，绝不能判为 getshell。
+        if is_static_asset(url):
+            return ("静态资源", "静态资源（非业务接口，不做漏洞映射）", "不适用", "—", "—")
         blob = f"{url.lower()} {risk_dir.lower()}"
         for keywords, result in _RISK_RULES:
             if any(self._kw_hit(blob, k) for k in keywords):
