@@ -498,7 +498,14 @@ class ASTApiParser:
 
         迭代实现（显式栈），避免深嵌套压缩 JS 触发递归栈溢出。
         说明：tree-sitter 0.26.0 对部分大文件即使迭代遍历也会 SIGSEGV，
-        故 requirements 已 pin 到 0.23.2；显式栈是额外的深嵌套防御。"""
+        故 requirements 已 pin 到 0.23.2；显式栈是额外的深嵌套防御。
+
+        code 参数可以是 str 或 bytes；内部统一转为 bytes 处理：
+        node.start_byte/end_byte 是字节偏移，若用 str 切片会因多字节字符
+        （OPPO 商城 JS 大量中文）全线错位，导致 _ts_text 返回乱码、
+        AST 提取实际失效（曾让 33 条接口全靠正则兜底）。"""
+        if isinstance(code, str):
+            code = code.encode("utf-8", errors="replace")
         MAX_NODES = 5_000_000
         visited = 0
         stack = [node]
@@ -521,8 +528,11 @@ class ASTApiParser:
             stack.extend(cur.children)
 
     @staticmethod
-    def _ts_text(node, code: str) -> str:
-        return code[node.start_byte:node.end_byte]
+    def _ts_text(node, code) -> str:
+        # code 可能是 str（外部直接调用）或 bytes（_ts_walk 内部已转换）
+        if isinstance(code, str):
+            code = code.encode("utf-8", errors="replace")
+        return code[node.start_byte:node.end_byte].decode("utf-8", errors="replace")
 
     def _ts_expr_to_dict(self, node, code: str) -> dict:
         """tree-sitter 表达式节点 -> 统一 AST dict（供 _string_from_arg/_object_keys 消费）。"""
