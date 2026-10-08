@@ -19,6 +19,7 @@ import hashlib
 import os
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -206,10 +207,17 @@ class ResourceCollector:
     def _local_locate(self, vurl: str) -> Path | None:
         """虚拟 URL -> 本地文件：
         1) root 下按 URL 路径直查；2) 找不到则按 basename 全树唯一匹配
-        （容忍 assets/ 等目录前缀差异）。"""
-        if not vurl or vurl.startswith(("http://", "https://", "data:", "javascript:")):
+        （容忍 assets/ 等目录前缀差异）。
+        绝对 URL（http/https）自动提取 path 部分；这是 CDN 分离架构
+        （页面在 A 域、静态资源在 B 域）本地审计的必要支持。"""
+        if not vurl or vurl.startswith(("data:", "javascript:")):
             return None
-        rel = vurl.lstrip("/")
+        if vurl.startswith(("http://", "https://")):
+            rel = urlparse(vurl).path.lstrip("/")
+            if not rel:
+                return None
+        else:
+            rel = vurl.lstrip("/")
         direct = self.root / rel
         if direct.is_file():
             return direct

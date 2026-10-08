@@ -109,6 +109,10 @@ _REGEX_PATTERNS = (
     (r"\.open\s*\(\s*['\"](GET|POST|PUT|PATCH|DELETE|HEAD)['\"]\s*,\s*['\"]([^'\"]+)['\"]", None, None),
     # 模板字符串中的接口路径 /api/xxx/${id}
     (r"fetch\s*\(\s*`([^`]+)`", "GET", None),
+    # axios/http/request 直接调用（无 .method 链）：$axios("/path") / axios("/path")
+    (r"(?:\$?axios|\$?http|\$?request)\s*\(\s*['\"](/[^'\"]{3,})['\"]", "GET", None),
+    # 配置对象里的接口常量：{CART_LIST: "/orders/web/cart/v1/list"}
+    (r"\b[A-Z][A-Z0-9_]{2,}\s*:\s*['\"](/[a-zA-Z0-9_/.-]{4,})['\"]", "GET", None),
 )
 # baseURL / API_HOST 等配置常量（用于上下文，不作为独立接口）
 _BASEURL_RE = re.compile(r"baseURL\s*[:=]\s*['\"]([^'\"]+)['\"]", re.M)
@@ -957,7 +961,9 @@ class ASTApiParser:
     def _regex_extract(self, code: str, source_url: str) -> None:
         # 剥离注释，避免误抓注释里的 URL（如废弃接口）
         code = re.sub(r'/\*.*?\*/', '', code, flags=re.S)
-        code = re.sub(r'//[^\n]*', '', code)
+        # 注意：不再剥离 // 单行注释。
+        # 压缩 JS 无换行，//[^\n]* 会从第一个 // 吞掉后续全部代码（实测 2aaff7f.js 的 51 处 $axios 全灭）。
+        # /* */ 块注释保留剥离，它不受换行影响，误伤可控。
 
         # jQuery 变量拼接 URL 场景：url += "/_visitcountdisplay"
         if re.search(r'\$\.(ajax|post|get|getJSON)\s*\(', code):
