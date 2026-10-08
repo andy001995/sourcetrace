@@ -321,6 +321,11 @@ class ASTApiParser:
         for _url, code in self.js_store.items():
             for decl in _WRAPPER_DECL_RE.finditer(code):
                 fn = decl.group("fn")
+                # 压缩产物里单字母/双字母函数满地都是（V/t/nt/o），
+                # 内部恰好调用了一个 .get/.post 就会被误判成 API 封装。
+                # 要求函数名长度 ≥ 3，过滤掉这类噪音；真封装名通常有语义。
+                if len(fn) < 3:
+                    continue
                 params = [p.strip() for p in decl.group("params").split(",") if p.strip()]
                 body = decl.group("body")
                 mapping: dict[str, list[str]] = {}
@@ -754,7 +759,9 @@ class ASTApiParser:
             mapping = self.wrapper_index.get(fn_name) if fn_name else None
             if mapping and args:
                 url_val, hints = self._string_from_arg(args[0])
-                if url_val:
+                # URL 必须以 / 开头：真业务接口路径皆如此（/goods/... /orders/...）；
+                # 若以字母开头（"x-"、"figs/"），几乎一定是压缩函数调用透传的碎字符串。
+                if url_val and url_val.startswith("/"):
                     # 用第一个能透传 URL 的参数对应的动词（通常就是第一个参数）
                     verbs = next(iter(mapping.values()), ["get"])
                     method = self._VERBS.get(verbs[0], "GET")
