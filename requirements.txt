@@ -4,8 +4,10 @@
 httpx>=0.27.0           # HTTP 客户端（仅用于下载「公开静态资源」本身，绝不向提取 API 发包）
 beautifulsoup4>=4.12.3  # HTML 解析（提取静态资源链接）
 esprima>=4.0.1          # 纯 Python JS AST 解析器（稳定兜底，无外部二进制依赖）
-tree-sitter>=0.25       # 错误容忍 JS AST 解析器（首选：能解析现代/压缩 JS，
-tree-sitter-javascript>=0.25  #  可选链/顶层 await 等 esprima 盲区，语法错误不中断）
+# tree-sitter 版本已 pin：0.26.x 对深嵌套压缩 JS 会触发 SIGSEGV（实测 OPPO 商城
+# 914e5ca.js 等 4 个大文件全崩），0.23.2 稳定。
+tree-sitter==0.23.2           # 错误容忍 JS AST 解析器（首选：能解析现代/压缩 JS，
+tree-sitter-javascript==0.23.0  #  可选链/顶层 await 等 esprima 盲区，语法错误不中断）
 
 fastapi>=0.111.0        # 网页版后端（形态A）
 uvicorn[standard]>=0.30.0

@@ -489,16 +489,31 @@ class ASTApiParser:
     # ==================== tree-sitter 遍历（错误容忍 AST） ====================
     def _ts_walk(self, node, code: str, source_url: str) -> None:
         """深度优先遍历 tree-sitter 树；每个 call_expression 转为 esprima 风格 dict
-        后复用 _handle_call（fetch / member 动词 / 封装函数 / axios 单对象等形态全覆盖）。"""
-        if node.type == "call_expression":
-            try:
-                call = self._ts_call_to_dict(node, code)
-                if call.get("callee"):
-                    self._handle_call(call, source_url)
-            except Exception:
-                pass
-        for child in node.named_children:
-            self._ts_walk(child, code, source_url)
+        后复用 _handle_call（fetch / member 动词 / 封装函数 / axios 单对象等形态全覆盖）。
+
+        迭代实现（显式栈），避免深嵌套压缩 JS 触发递归栈溢出。
+        说明：tree-sitter 0.26.0 对部分大文件即使迭代遍历也会 SIGSEGV，
+        故 requirements 已 pin 到 0.23.2；显式栈是额外的深嵌套防御。"""
+        MAX_NODES = 5_000_000
+        visited = 0
+        stack = [node]
+        while stack:
+            cur = stack.pop()
+            visited += 1
+            if visited > MAX_NODES:
+                self.warnings.append(
+                    f"tree-sitter 遍历节点数超限（>{MAX_NODES}），提前停止: {source_url}"
+                )
+                return
+            if cur.type == "call_expression":
+                try:
+                    call = self._ts_call_to_dict(cur, code)
+                    if call.get("callee"):
+                        self._handle_call(call, source_url)
+                except Exception:
+                    pass
+            # 显式栈遍历（避免递归栈溢出与 TreeCursor 缺陷）
+            stack.extend(cur.children)
 
     @staticmethod
     def _ts_text(node, code: str) -> str:
