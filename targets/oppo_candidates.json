@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "note": "Static-source-analysis candidates only. No active probing. Authorization required.",
+  "targets": [
+    {
+      "id": "oppo-mall",
+      "name": "OPPO商城",
+      "importance": "core",
+      "type": "web",
+      "candidates": ["shop.oppo.com", "mall.oppo.com", "*.opposhop.cn"],
+      "authorized": false,
+      "entry": ""
+    },
+    {
+      "id": "oppo-market",
+      "name": "软件商店",
+      "importance": "core",
+      "type": "web+android",
+      "candidates": ["store.oppo.com", "market.oppo.com", "com.oppo.market", "com.heytap.market"],
+      "authorized": false,
+      "entry": ""
+    }
+  ]
+}

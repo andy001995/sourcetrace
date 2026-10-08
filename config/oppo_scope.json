@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "source": "OSRC business scope rules",
+  "self_suffixes": [
+    "oppo.com",
+    "oppo.cn",
+    "myoppo.com",
+    "opposhop.cn",
+    "coloros.com",
+    "nearme.com",
+    "oppomobile.com",
+    "oppofind.com",
+    "myoas.com",
+    "heytap.com",
+    "heytapmobi.com",
+    "realme.com",
+    "realme.net"
+  ],
+  "self_package_prefixes": [
+    "com.oppo.",
+    "com.heytap.",
+    "com.nearme.",
+    "com.coloros."
+  ],
+  "test_suffixes": [
+    "wanyol.com",
+    "myoas.net"
+  ],
+  "test_keywords": [
+    "dev",
+    "test"
+  ],
+  "third_party_exact": [
+    "id-sso.xiniaoyun.com",
+    "sso-sa.yeahzee.com",
+    "sso-me.yeahzee.com",
+    "esign.myoas.com",
+    "yezi-me.yeahzee.com",
+    "yezi-sa.yeahzee.com"
+  ],
+  "third_party_embedded_keywords": [
+    "smartbi",
+    "yonghong"
+  ],
+  "core_businesses": {
+    "小布助手": [
+      "xiaobu",
+      "breeno",
+      "assistant"
+    ],
+    "OPPO商城": [
+      "shop",
+      "mall",
+      "opposhop"
+    ],
+    "极速视频": [
+      "speedvideo",
+      "fastvideo"
+    ],
+    "乐划锁屏": [
+      "lock",
+      "lockscreen"
+    ],
+    "浏览器": [
+      "browser"
+    ],
+    "全局搜索": [
+      "globalsearch",
+      "search"
+    ],
+    "软件商店": [
+      "market",
+      "store",
+      "appstore"
+    ],
+    "视频": [
+      "video"
+    ],
+    "我的OPPO": [
+      "myoppo"
+    ],
+    "小游戏": [
+      "minigame"
+    ],
+    "游戏助手": [
+      "gameassist",
+      "gamehelper"
+    ],
+    "游戏中心": [
+      "game"
+    ],
+    "云服务": [
+      "cloud"
+    ],
+    "主题商店": [
+      "theme"
+    ],
+    "查找手机": [
+      "findphone",
+      "findmyphone"
+    ],
+    "智能家居": [
+      "iot",
+      "smarthome"
+    ],
+    "钱包": [
+      "wallet",
+      "pay"
+    ],
+    "欢太金融": [
+      "fin",
+      "finance",
+      "heytapfin"
+    ],
+    "快应用中心": [
+      "instant",
+      "quickapp"
+    ],
+    "健康": [
+      "health"
+    ],
+    "社区": [
+      "community",
+      "bbs",
+      "forum"
+    ]
+  }
+}
