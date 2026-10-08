@@ -98,6 +98,8 @@ _STATIC_EXTS = (
 
 # 正则兜底模式（置信度：低）
 _REGEX_PATTERNS = (
+    # .concat(base, "/path") -- OPPO home page main form
+    (r"\.concat\([^,)]+,\s*['\"](/[^'\"]{3,})['\"]", "GET", None),
     # fetch('url')
     (r"fetch\s*\(\s*['\"]([^'\"]+)['\"]", "GET", None),
     # axios.get/post/put/patch/delete/head('url')
@@ -324,8 +326,6 @@ class ASTApiParser:
                 # 压缩产物里单字母/双字母函数满地都是（V/t/nt/o），
                 # 内部恰好调用了一个 .get/.post 就会被误判成 API 封装。
                 # 要求函数名长度 ≥ 3，过滤掉这类噪音；真封装名通常有语义。
-                if len(fn) < 3:
-                    continue
                 params = [p.strip() for p in decl.group("params").split(",") if p.strip()]
                 body = decl.group("body")
                 mapping: dict[str, list[str]] = {}
@@ -771,7 +771,7 @@ class ASTApiParser:
                 url_val, hints = self._string_from_arg(args[0])
                 # URL 必须以 / 开头：真业务接口路径皆如此（/goods/... /orders/...）；
                 # 若以字母开头（"x-"、"figs/"），几乎一定是压缩函数调用透传的碎字符串。
-                if url_val and url_val.startswith("/"):
+                if url_val and (url_val.startswith("/") or url_val.startswith(("http://", "https://"))):
                     # 用第一个能透传 URL 的参数对应的动词（通常就是第一个参数）
                     verbs = next(iter(mapping.values()), ["get"])
                     method = self._VERBS.get(verbs[0], "GET")
@@ -1044,6 +1044,11 @@ class ASTApiParser:
             fn, url, obj_str = match.group("fn"), match.group("url"), match.group("obj")
             mapping = self.wrapper_index.get(fn)
             if not mapping or not url:
+                continue
+            # URL 形态过滤（与 _handle_call 形态4 保持一致）：
+            # 真接口路径以 / 或 http(s):// 开头；
+            # 过滤掉 Vue 异步组件名（cmps/oppo/cmp-xxx）等噪音。
+            if not (url.startswith("/") or url.startswith(("http://", "https://"))):
                 continue
             verbs = next(iter(mapping.values()), ["get"])
             method = self._VERBS.get(verbs[0], "GET")
